@@ -25,8 +25,7 @@
     });
 
     // 🔥 Inisialisasi Stockfish
-    const stockfish = new Worker('https://cdn.jsdelivr.net/gh/nmrugg/stockfish.js/stockfish.wasm.js');
-
+    const stockfish = new Worker("stockfish.wasm.js");
     stockfish.onmessage = function (event) {
       const line = event.data || event;
       if (line.startsWith("bestmove")) {
