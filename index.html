@@ -1,2 +1,51 @@
-# chess
-games
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Catur vs Bot</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.13.4/chess.min.js"></script>
+  <style>
+    body { display: flex; flex-direction: column; align-items: center; font-family: sans-serif; background: #222; color: #fff; }
+    #board { width: 90vw; max-width: 400px; margin-top: 20px; }
+    h1 { margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>♟️ Catur vs Bot (Stockfish)</h1>
+  <div id="board"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+  <script>
+    const game = new Chess();
+    const board = Chessboard('board', {
+      draggable: true,
+      position: 'start',
+      onDrop: onDrop
+    });
+
+    // 🔥 Inisialisasi Stockfish
+    const stockfish = new Worker('https://cdn.jsdelivr.net/gh/nmrugg/stockfish.js/stockfish.wasm.js');
+
+    stockfish.onmessage = function (event) {
+      const line = event.data || event;
+      if (line.startsWith("bestmove")) {
+        const move = line.split(" ")[1];
+        if (move) {
+          game.move({ from: move.substring(0, 2), to: move.substring(2, 4), promotion: 'q' });
+          board.position(game.fen());
+          if (game.game_over()) alert("Permainan selesai!");
+        }
+      }
+    };
+
+    function onDrop(source, target) {
+      const move = game.move({ from: source, to: target, promotion: 'q' });
+      if (move === null) return 'snapback';
+      board.position(game.fen());
+      stockfish.postMessage("position fen " + game.fen());
+      stockfish.postMessage("go depth 15");
+    }
+  </script>
+</body>
+</html>
