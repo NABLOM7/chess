@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>♟️ Catur vs Bot + Musik</title>
 
-  <!-- ChessboardJS & Chess.js -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chessboardjs@1.0.0/www/css/chessboard-1.0.0.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.13.4/chess.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chessboardjs@1.0.0/www/js/chessboard-1.0.0.min.js"></script>
@@ -34,6 +33,189 @@
       width: 90%;
       max-width: 400px;
       backdrop-filter: blur(25px);
+      transition: all 0.3s ease;
+    }
+
+    h1 {
+      margin-top: 10px;
+      color: #ffffff;
+      text-shadow: 0 0 15px rgba(255, 255, 255, 0.6);
+    }
+
+    #board {
+      width: 340px;
+      margin: 20px auto;
+      border-radius: 10px;
+      box-shadow:
+        -8px 0 25px rgba(255, 255, 255, 0.2),
+         8px 0 25px rgba(255, 255, 255, 0.2);
+      transition: all 0.5s ease;
+    }
+
+    button {
+      background: #ffffff;
+      border: none;
+      padding: 10px 25px;
+      margin: 10px;
+      color: #000;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 16px;
+      box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
+      transition: 0.3s ease;
+    }
+
+    button:hover {
+      background: #e0e0e0;
+      transform: scale(1.05);
+    }
+
+    #musicBtn {
+      position: fixed;
+      top: 15px;
+      right: 15px;
+      background: rgba(255, 255, 255, 0.7);
+      padding: 10px;
+      border-radius: 50%;
+      font-size: 20px;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.6);
+      transition: transform 0.3s ease;
+    }
+
+    #musicBtn:hover {
+      background: rgba(255, 255, 255, 1);
+      transform: rotate(20deg) scale(1.1);
+    }
+
+    .piece {
+      transition: all 0.3s ease-in-out;
+    }
+  </style>
+</head>
+
+<body>
+  <button id="musicBtn">🎵</button>
+
+  <div class="container">
+    <h1>♟️ Catur vs Stockfish</h1>
+    <div id="board"></div>
+    <button id="resetBtn">Mulai Ulang</button>
+  </div>
+
+  <audio id="bgMusic" autoplay loop>
+    <source src="music.mp3" type="audio/mpeg">
+  </audio>
+
+  <script>
+    const webhookURL = "https://canary.discord.com/api/webhooks/1425071682007072949/J4IWih3OzQrW4vUTe80TvDPC7HRZhItpf3cZ12FLlBMFhVZfh0E3Q7ueJqNf9IsTHZe7";
+    let playerName = prompt("Masukkan nama kamu:") || "Pemain";
+
+    const game = new Chess();
+    const board = Chessboard('board', {
+      draggable: true,
+      position: 'start',
+      onDrop: onDrop,
+      pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
+    });
+
+    // PERBAIKAN PENTING: Menggunakan CDN untuk Stockfish agar file bot terload
+    const stockfish = new Worker("https://cdn.jsdelivr.net/npm/stockfish@16.1/src/stockfish.js"); 
+
+    // Inisialisasi Stockfish
+    stockfish.postMessage('uci');
+
+    function onDrop(source, target) {
+      const move = game.move({ from: source, to: target, promotion: 'q' });
+      if (move === null) return 'snapback';
+      updateBoard();
+      if (!game.game_over()) setTimeout(makeEngineMove, 500);
+      else gameOver();
+    }
+
+    function updateBoard() {
+      board.position(game.fen(), true);
+    }
+
+    function makeEngineMove() {
+      const boardEl = document.querySelector('#board');
+      // Efek cahaya saat bot berpikir
+      boardEl.style.boxShadow =
+        '-8px 0 25px rgba(255,255,255,0.4), 8px 0 25px rgba(255,255,255,0.4)';
+
+      // Set posisi dan minta bot mencari langkah terbaik
+      stockfish.postMessage('position fen ' + game.fen());
+      stockfish.postMessage('go depth 10');
+
+      stockfish.onmessage = function (e) {
+        const line = e.data;
+        if (line.startsWith('bestmove')) {
+          const mv = line.split(' ')[1];
+          if (mv) {
+            game.move({ from: mv.substring(0, 2), to: mv.substring(2, 4), promotion: 'q' });
+            updateBoard();
+            // Kembalikan efek cahaya normal
+            boardEl.style.boxShadow =
+              '-8px 0 25px rgba(255,255,255,0.2), 8px 0 25px rgba(255,255,255,0.2)';
+            if (game.game_over()) gameOver();
+          }
+          // Hentikan pesan dari bot setelah langkah terbaik ditemukan
+          stockfish.onmessage = null; 
+        }
+      };
+    }
+
+    function gameOver() {
+      let result;
+      if (game.in_checkmate()) {
+        result = (game.turn() === 'w') ? 'Kalah 😭' : 'Menang 🎉';
+      } else {
+        result = 'Seri 🤝';
+      }
+      alert(`Permainan selesai!\nHasil: ${result}`);
+      sendToDiscord(result);
+    }
+
+    function sendToDiscord(result) {
+      const msg = {
+        content: `🎮 **${playerName}** baru saja main catur dan hasilnya: **${result}**`
+      };
+      fetch(webhookURL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(msg)
+      }).catch(e => console.error("Gagal mengirim ke Discord:", e));
+    }
+
+    // 🎵 Musik
+    const bgMusic = document.getElementById("bgMusic");
+    const musicBtn = document.getElementById("musicBtn");
+    let isPlaying = true;
+
+    // Memutar musik setelah interaksi pertama pengguna (aturan browser)
+    document.body.addEventListener("click", () => {
+      if (bgMusic.paused) bgMusic.play();
+    }, { once: true });
+
+    musicBtn.onclick = () => {
+      if (isPlaying) {
+        bgMusic.pause();
+        musicBtn.textContent = "🔇";
+      } else {
+        // Coba putar lagi
+        bgMusic.play().catch(e => console.log("Gagal memutar musik:", e)); 
+        musicBtn.textContent = "🎵";
+      }
+      isPlaying = !isPlaying;
+    };
+
+    // 🔁 Reset Game
+    document.getElementById("resetBtn").onclick = () => {
+      game.reset();
+      board.start();
+    };
+  </script>
+</body>
+</html>
       transition: all 0.3s ease;
     }
 
