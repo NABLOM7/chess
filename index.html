@@ -1,71 +1,171 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>♟️ Catur vs Bot + Musik</title>
-
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/chessboardjs@1.0.0/www/css/chessboard-1.0.0.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.13.4/chess.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chessboardjs@1.0.0/www/js/chessboard-1.0.0.min.js"></script>
-
+  <meta charset="UTF-8" />
+  <title>Game Catur Web dengan Bidak Mentahan</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css" />
   <style>
-    body {
-      font-family: 'Poppins', sans-serif;
-      background: linear-gradient(145deg, #1a1a1a, #2a2a2a, #3a3a3a);
-      color: #f5f5f5;
-      margin: 0;
-      overflow-x: hidden;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
-      backdrop-filter: blur(15px);
+    body { font-family: Arial, sans-serif; background: #fafafa; text-align: center; margin: 0; padding: 15px; }
+    h2 { margin-bottom: 12px; }
+    #welcome { margin-bottom: 15px; }
+    img.ornamen { width: 190px; margin: 6px; border: 1px solid #bbb; border-radius: 5px; }
+    #nameInput, #menu, #game, #result { margin-top: 15px; }
+    #board { margin: 12px auto; }
+    button, input { font-size: 16px; padding: 8px 14px; border-radius: 5px; border: 1px solid #888; }
+    button { cursor: pointer; background-color: #eaeaea; }
+    button:hover { background-color: #cfcfcf; }
+    input { width: 200px; }
+    .hidden { display: none; }
+    #status { margin-top: 12px; font-weight: bold; }
+    #footer { margin-top: 40px; font-size: 12px; color: #777; }
+  </style>
+</head>
+<body>
+  <h2>Game Catur Online</h2>
+
+  <div id="welcome">
+    <img src="quality_restoration_20251008112907799.jpg" alt="Papan Catur" class="ornamen" />
+    <img src="quality_restoration_20251008113117094.jpg" alt="Bidak Catur" class="ornamen" />
+    <p>Selamat datang! Masukkan nama lalu pilih mode main: lawan Bot atau P1 vs P2.</p>
+  </div>
+
+  <div id="nameInput">
+    <input type="text" id="playerName" placeholder="Masukkan Nama Anda" />
+    <button id="startBtn">Mulai</button>
+  </div>
+
+  <div id="menu" class="hidden">
+    <button id="vsBot">Lawan Bot</button>
+    <button id="vsP2">P1 vs P2</button>
+  </div>
+
+  <div id="game" class="hidden">
+    <div id="board" style="width: 320px;"></div>
+    <div id="status"></div>
+    <button id="restartBtn">Restart</button>
+  </div>
+
+  <div id="result" class="hidden">
+    <p id="resultText"></p>
+  </div>
+
+  <div id="footer">
+    &copy; 2025 Game Catur Web | Powered by chessboard.js & chess.js
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.12.0/chess.min.js"></script>
+  <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+  <script>
+    const webhookURL = ""; // Ganti dengan webhook Discord anda jika ingin pakai, kosongkan jika tidak
+    let game = new Chess();
+    let board = null;
+    let playerName = "";
+    let gameMode = "";
+    let startTime = null;
+
+    $("#startBtn").click(() => {
+      playerName = $("#playerName").val().trim();
+      if (!playerName) {
+        alert("Masukkan nama Anda dulu!");
+        return;
+      }
+      $("#nameInput").hide();
+      $("#menu").show();
+    });
+
+    $("#vsBot").click(() => startGame("bot"));
+    $("#vsP2").click(() => startGame("pvp"));
+    $("#restartBtn").click(() => {
+      $("#game").hide();
+      $("#result").hide();
+      $("#menu").show();
+      game.reset();
+      board.position("start");
+    });
+
+    function startGame(mode) {
+      gameMode = mode;
+      game.reset();
+      startTime = new Date();
+      $("#menu").hide();
+      $("#result").hide();
+      $("#game").show();
+
+      if (board) board.destroy();
+      board = Chessboard("board", {
+        draggable: true,
+        position: "start",
+        onDrop: onDrop,
+      });
+      updateStatus();
     }
 
-    .container {
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 25px;
-      box-shadow: 0 8px 30px rgba(255, 255, 255, 0.15);
-      padding: 25px;
-      margin-top: 40px;
-      width: 90%;
-      max-width: 400px;
-      backdrop-filter: blur(25px);
-      transition: all 0.3s ease;
+    function onDrop(source, target) {
+      let move = game.move({ from: source, to: target, promotion: "q" });
+      if (move === null) return "snapback";
+      updateStatus();
+
+      if (gameMode === "bot" && !game.game_over()) {
+        setTimeout(botMove, 400);
+      }
+      if (game.game_over()) {
+        endGame();
+      }
     }
 
-    h1 {
-      margin-top: 10px;
-      color: #ffffff;
-      text-shadow: 0 0 15px rgba(255, 255, 255, 0.6);
+    function botMove() {
+      let moves = game.moves();
+      if (moves.length === 0) return;
+      let move = moves[Math.floor(Math.random() * moves.length)];
+      game.move(move);
+      board.position(game.fen());
+      updateStatus();
+      if (game.game_over()) {
+        endGame();
+      }
     }
 
-    #board {
-      width: 340px;
-      margin: 20px auto;
-      border-radius: 10px;
-      box-shadow:
-        -8px 0 25px rgba(255, 255, 255, 0.2),
-         8px 0 25px rgba(255, 255, 255, 0.2);
-      transition: all 0.5s ease;
+    function updateStatus() {
+      let status = "";
+      if (game.in_checkmate()) {
+        status = "Checkmate! " + (game.turn() === "w" ? "Hitam" : "Putih") + " menang!";
+      } else if (game.in_draw()) {
+        status = "Seri.";
+      } else {
+        status = (game.turn() === "w" ? "Putih" : "Hitam") + " giliran jalan";
+      }
+      $("#status").text(status);
     }
 
-    button {
-      background: #ffffff;
-      border: none;
-      padding: 10px 25px;
-      margin: 10px;
-      color: #000;
-      border-radius: 10px;
-      cursor: pointer;
-      font-size: 16px;
-      box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
-      transition: 0.3s ease;
-    }
+    function endGame() {
+      const endTime = new Date();
+      const duration = ((endTime - startTime) / 1000).toFixed(2);
+      let message = "";
 
-    button:hover {
+      if (game.in_checkmate()) {
+        const winner = game.turn() === "w" ? "Hitam" : "Putih";
+        message = `Game selesai, pemenang: ${winner}. Nama: ${playerName}, waktu bermain: ${duration} detik.`;
+        if (gameMode === "bot" && winner === "Putih" && webhookURL) {
+          fetch(webhookURL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              content: `${playerName} mengalahkan bot dalam waktu ${duration} detik!`,
+            }),
+          });
+        }
+      } else {
+        message = `Game selesai dengan hasil seri. Nama: ${playerName}, waktu bermain: ${duration} detik.`;
+      }
+
+      $("#resultText").text(message);
+      $("#result").show();
+    }
+  </script>
+</body>
+</html>    button:hover {
       background: #e0e0e0;
       transform: scale(1.05);
     }
